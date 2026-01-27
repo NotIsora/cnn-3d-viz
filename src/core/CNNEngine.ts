@@ -1,61 +1,99 @@
 import * as tf from '@tensorflow/tfjs';
-import { LayerData } from '@/store/useCNNStore';
+
+export interface LayerData {
+  id: string;
+  name: string;
+  shape: number[];
+  activations: Float32Array; // Dữ liệu đã được flatten để render
+}
 
 export class CNNEngine {
-  /**
-   * Chạy Inference an toàn với memory cleanup
-   */
-  static async runInference(inputData: number[][]): Promise<LayerData[]> {
-    // 1. Validate Input
-    if (!inputData || inputData.length === 0) {
-      throw new Error("Input data is empty or invalid.");
+  private model: tf.Sequential | null = null;
+  private debugModel: tf.LayersModel | null = null;
+
+  constructor() {
+    this.initModel();
+  }
+
+  private initModel() {
+    // Xây dựng model CNN đơn giản cho MNIST (Input 28x28)
+    this.model = tf.sequential();
+    
+    // Layer 1: Conv2D
+    this.model.add(tf.layers.conv2d({
+      inputShape: [28, 28, 1],
+      kernelSize: 3,
+      filters: 8,
+      activation: 'relu',
+      name: 'conv2d_1'
+    }));
+
+    // Layer 2: MaxPooling
+    this.model.add(tf.layers.maxPooling2d({ 
+      poolSize: [2, 2], 
+      strides: [2, 2],
+      name: 'maxpool_1' 
+    }));
+
+    // Layer 3: Conv2D
+    this.model.add(tf.layers.conv2d({
+      kernelSize: 3,
+      filters: 16,
+      activation: 'relu',
+      name: 'conv2d_2'
+    }));
+
+    // Layer 4: Flatten
+    this.model.add(tf.layers.flatten({ name: 'flatten' }));
+
+    // Layer 5: Dense
+    this.model.add(tf.layers.dense({ 
+      units: 10, 
+      activation: 'softmax',
+      name: 'output' 
+    }));
+
+    // Tạo auxiliary model để lấy output của từng layer
+    // Defensive coding: Kiểm tra inputs/outputs tồn tại
+    if (this.model.inputs && this.model.layers) {
+        const layers = this.model.layers;
+        const symbolicOutputs = layers.map(l => l.output) as tf.SymbolicTensor[];
+        this.debugModel = tf.model({ 
+            inputs: this.model.inputs, 
+            outputs: symbolicOutputs 
+        });
     }
+  }
 
-    // 2. Wrap trong tf.tidy để tự động dọn dẹp Tensor, tránh memory leak
+  /**
+   * Dự đoán và trả về activations của TOÀN BỘ các lớp
+   * @param inputData Mảng 2D 28x28 pixel (giá trị 0-1)
+   */
+  async predict(inputData: number[][]): Promise<LayerData[]> {
+    if (!this.debugModel) throw new Error("Model not initialized");
+
     return tf.tidy(() => {
-      try {
-        const results: LayerData[] = [];
-        
-        // --- Input Layer ---
-        // Chuyển mảng 2D thành Tensor [1, H, W, 1]
-        let currentTensor = tf.tensor2d(inputData).expandDims(0).expandDims(-1) as tf.Tensor4D;
-        
-        results.push({
-          name: 'Input Layer',
-          shape: currentTensor.shape,
-          data: currentTensor.dataSync() as Float32Array
-        });
+        // 1. Chuyển đổi input thành Tensor [1, 28, 28, 1]
+        const inputTensor = tf.tensor4d(inputData.flat(), [1, 28, 28, 1]);
 
-        // --- Conv2D Layer 1 ---
-        // Giả lập kernel detect edge (Sobel-like)
-        const kernel1 = tf.tensor4d([
-          [1, 0, -1], [2, 0, -2], [1, 0, -1]
-        ], [3, 3, 1, 1]); 
-        
-        currentTensor = tf.conv2d(currentTensor, kernel1, 1, 'same');
-        currentTensor = tf.relu(currentTensor); // Activation
-        
-        results.push({
-          name: 'Conv2D + ReLU',
-          shape: currentTensor.shape,
-          data: currentTensor.dataSync() as Float32Array
-        });
+        // 2. Chạy inference
+        // tf.model.predict trả về Tensor hoặc Tensor[]
+        const outputs = this.debugModel!.predict(inputTensor);
+        const outputArray = Array.isArray(outputs) ? outputs : [outputs];
 
-        // --- Max Pooling Layer ---
-        currentTensor = tf.maxPool(currentTensor, [2, 2], [2, 2], 'same');
-        
-        results.push({
-          name: 'Max Pooling 2x2',
-          shape: currentTensor.shape,
-          data: currentTensor.dataSync() as Float32Array
+        // 3. Map kết quả sang cấu trúc dữ liệu cho visualization
+        const results: LayerData[] = outputArray.map((tensor, index) => {
+            const layer = this.model!.layers[index];
+            const data = tensor.dataSync() as Float32Array; // Sync download vì data nhỏ
+            return {
+                id: `layer_${index}`,
+                name: layer.name,
+                shape: tensor.shape.slice(1), // Bỏ batch dimension [1, h, w, d] -> [h, w, d]
+                activations: data
+            };
         });
 
         return results;
-
-      } catch (err) {
-        console.error("TF.js Inference Error:", err);
-        throw err; // Ném lỗi ra để UI catch
-      }
-    });
+    }); // tf.tidy tự động dọn dẹp tensor trung gian để tránh memory leak
   }
 }
