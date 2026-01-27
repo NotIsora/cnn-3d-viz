@@ -1,73 +1,61 @@
 import * as tf from '@tensorflow/tfjs';
-
-// Define explicit types instead of 'any'
-export interface LayerData {
-  name: string;
-  type: string;
-  shape: number[];
-  weights?: Float32Array; // Flattened weights
-  activation?: string;
-}
+import { LayerData } from '@/store/useCNNStore';
 
 export class CNNEngine {
-  private model: tf.LayersModel | null = null;
-
   /**
-   * Loads a model safely with error handling.
-   * @param modelUrl URL to the model.json
+   * Chạy Inference an toàn với memory cleanup
    */
-  async loadModel(modelUrl: string): Promise<void> {
-    try {
-      this.model = await tf.loadLayersModel(modelUrl);
-      console.log(`[CNNEngine] Model loaded: ${this.model.name}`);
-    } catch (error) {
-      console.error(`[CNNEngine] Failed to load model:`, error);
-      throw new Error(`Could not load model from ${modelUrl}`);
-    }
-  }
-
-  /**
-   * Extracts layer structure efficiently using tf.tidy to prevent leaks.
-   */
-  getLayerArchitecture(): LayerData[] {
-    if (!this.model) {
-      console.warn('[CNNEngine] Model not loaded yet.');
-      return [];
+  static async runInference(inputData: number[][]): Promise<LayerData[]> {
+    // 1. Validate Input
+    if (!inputData || inputData.length === 0) {
+      throw new Error("Input data is empty or invalid.");
     }
 
-    // tf.tidy executes the function and then cleans up all intermediate tensors
+    // 2. Wrap trong tf.tidy để tự động dọn dẹp Tensor, tránh memory leak
     return tf.tidy(() => {
-      return this.model!.layers.map(layer => {
-        let weightsData: Float32Array | undefined;
+      try {
+        const results: LayerData[] = [];
         
-        // Defensive check for weights
-        const weights = layer.getWeights();
-        if (weights && weights.length > 0) {
-            // We usually want the kernel, usually the first weight tensor
-            // synchonous dataSync() is okay for small visualization data, 
-            // but prefer data() (async) for large models in production.
-            weightsData = weights[0].dataSync() as Float32Array; 
-        }
+        // --- Input Layer ---
+        // Chuyển mảng 2D thành Tensor [1, H, W, 1]
+        let currentTensor = tf.tensor2d(inputData).expandDims(0).expandDims(-1) as tf.Tensor4D;
+        
+        results.push({
+          name: 'Input Layer',
+          shape: currentTensor.shape,
+          data: currentTensor.dataSync() as Float32Array
+        });
 
-        return {
-          name: layer.name,
-          type: layer.getClassName(),
-          shape: layer.outputShape as number[],
-          weights: weightsData,
-          activation: (layer as any).activation?.constructor?.name // Safer access
-        };
-      });
+        // --- Conv2D Layer 1 ---
+        // Giả lập kernel detect edge (Sobel-like)
+        const kernel1 = tf.tensor4d([
+          [1, 0, -1], [2, 0, -2], [1, 0, -1]
+        ], [3, 3, 1, 1]); 
+        
+        currentTensor = tf.conv2d(currentTensor, kernel1, 1, 'same');
+        currentTensor = tf.relu(currentTensor); // Activation
+        
+        results.push({
+          name: 'Conv2D + ReLU',
+          shape: currentTensor.shape,
+          data: currentTensor.dataSync() as Float32Array
+        });
+
+        // --- Max Pooling Layer ---
+        currentTensor = tf.maxPool(currentTensor, [2, 2], [2, 2], 'same');
+        
+        results.push({
+          name: 'Max Pooling 2x2',
+          shape: currentTensor.shape,
+          data: currentTensor.dataSync() as Float32Array
+        });
+
+        return results;
+
+      } catch (err) {
+        console.error("TF.js Inference Error:", err);
+        throw err; // Ném lỗi ra để UI catch
+      }
     });
-  }
-
-  /**
-   * Manual cleanup method to be called when component unmounts
-   */
-  dispose(): void {
-    if (this.model) {
-      this.model.dispose();
-      this.model = null;
-      console.log('[CNNEngine] Model disposed.');
-    }
   }
 }
