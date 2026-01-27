@@ -1,50 +1,91 @@
-'use client';
-
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
-import { LayerData } from '@/core/CNNEngine'; // Import shared type
+import { useCNNStore, LayerData } from '@/store/useCNNStore';
 
 interface LayerMeshProps {
-  data: LayerData;
+  layer: LayerData;
+  layerIndex: number;
   position: [number, number, number];
-  color?: string;
 }
 
-export const LayerMesh: React.FC<LayerMeshProps> = ({ 
-  data, 
-  position, 
-  color = 'orange' 
-}) => {
-  const meshRef = useRef<THREE.Mesh>(null);
+const VOXEL_SIZE = 0.8;
+const GAP = 0.1;
 
-  // 1. Optimization: Use useMemo for geometry to avoid recreating it on every render
-  const geometry = useMemo(() => {
-    // Logic to determine geometry based on shape (e.g., Box for Conv2D, Plane for Dense)
-    // Simplified for demo:
-    const [d, h, w] = data.shape.slice(1); // Assuming [batch, height, width, depth]
-    return new THREE.BoxGeometry(w || 1, h || 1, (d || 1) * 0.1);
-  }, [data.shape]);
+export const LayerMesh: React.FC<LayerMeshProps> = ({ layer, layerIndex, position }) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null!);
+  const { setHoveredInfo } = useCNNStore();
 
-  // 2. Safety: Explicit Resource Disposal
-  useEffect(() => {
-    return () => {
-      geometry.dispose();
-      // If we created a custom material instance, we would dispose it here too.
-    };
-  }, [geometry]);
+  const [_, height, width, channels] = layer.shape;
+  const count = width * height * channels;
+
+  // Reusable temporary objects (Memory Optimization)
+  const tempObject = useMemo(() => new THREE.Object3D(), []);
+  const tempColor = useMemo(() => new THREE.Color(), []);
+
+  useLayoutEffect(() => {
+    if (!meshRef.current) return;
+
+    let idx = 0;
+    // Loop qua từng channel -> row -> col
+    for (let c = 0; c < channels; c++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const id = idx++;
+          
+          // Tính vị trí: Center grid tại (0,0)
+          const posX = (x - width / 2) * (VOXEL_SIZE + GAP);
+          const posY = (height / 2 - y) * (VOXEL_SIZE + GAP); // Flip Y cho đúng ảnh
+          const posZ = c * 2; // Tách các channel ra xa một chút
+
+          tempObject.position.set(posX, posY, posZ);
+          tempObject.scale.setScalar(1);
+          tempObject.updateMatrix();
+          meshRef.current.setMatrixAt(id, tempObject.matrix);
+
+          // Color Mapping: Normalize value to Color
+          const val = layer.data[id] || 0;
+          // Viridis-like approximation (Tím -> Xanh -> Vàng)
+          tempColor.setHSL(0.6 - (val * 0.5), 1.0, val * 0.5 + 0.1); 
+          meshRef.current.setColorAt(id, tempColor);
+        }
+      }
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+  }, [layer, width, height, channels]);
 
   return (
     <group position={position}>
-      <mesh ref={meshRef} geometry={geometry}>
-        <meshStandardMaterial 
-            color={color} 
-            transparent 
-            opacity={0.8} 
-            side={THREE.DoubleSide} 
-        />
+      {/* Label Layer */}
+      <mesh position={[0, height/2 + 2, 0]}>
+        <textGeometry args={[layer.name]} /> 
+        {/* Note: Cần FontLoader để render text 3D, tạm thời dùng HTML overlay hoặc bỏ qua */}
       </mesh>
-      {/* 3. UX: Add floating label for better context */}
-      {/* <Text ... >{data.name}</Text> */} 
+
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, count]}
+        onPointerMove={(e) => {
+          e.stopPropagation();
+          const instanceId = e.instanceId;
+          if (instanceId === undefined) return;
+          
+          // Tính toán ngược lại index i,j từ instanceId
+          // Đây là simplified logic, thực tế cần mapping chính xác
+          setHoveredInfo({
+            layerIndex,
+            voxelIndex: instanceId,
+            x: 0, // Todo: calculate real X
+            y: 0, // Todo: calculate real Y
+            z: 0,
+            value: layer.data[instanceId]
+          });
+        }}
+        onPointerOut={() => setHoveredInfo(null)}
+      >
+        <boxGeometry args={[VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE]} />
+        <meshStandardMaterial roughness={0.2} metalness={0.8} />
+      </instancedMesh>
     </group>
   );
 };
