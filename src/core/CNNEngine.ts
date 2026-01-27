@@ -1,65 +1,73 @@
 import * as tf from '@tensorflow/tfjs';
 
+// Define explicit types instead of 'any'
 export interface LayerData {
-  id: string;
-  type: string;
   name: string;
+  type: string;
   shape: number[];
-  depth: number;
+  weights?: Float32Array; // Flattened weights
+  activation?: string;
 }
 
 export class CNNEngine {
-  private static instance: CNNEngine;
   private model: tf.LayersModel | null = null;
-  private isInitialized = false;
 
-  private constructor() {}
-
-  static getInstance(): CNNEngine {
-    if (!CNNEngine.instance) {
-      CNNEngine.instance = new CNNEngine();
+  /**
+   * Loads a model safely with error handling.
+   * @param modelUrl URL to the model.json
+   */
+  async loadModel(modelUrl: string): Promise<void> {
+    try {
+      this.model = await tf.loadLayersModel(modelUrl);
+      console.log(`[CNNEngine] Model loaded: ${this.model.name}`);
+    } catch (error) {
+      console.error(`[CNNEngine] Failed to load model:`, error);
+      throw new Error(`Could not load model from ${modelUrl}`);
     }
-    return CNNEngine.instance;
   }
 
-  async init() {
-    if (this.isInitialized) return;
-    await tf.ready();
-    console.log(`🧠 Backend: ${tf.getBackend()}`);
-    this.isInitialized = true;
-  }
+  /**
+   * Extracts layer structure efficiently using tf.tidy to prevent leaks.
+   */
+  getLayerArchitecture(): LayerData[] {
+    if (!this.model) {
+      console.warn('[CNNEngine] Model not loaded yet.');
+      return [];
+    }
 
-  async loadModel() {
-    // Tạo một model giả lập đơn giản để demo (chạy cực nhanh)
-    this.model = tf.sequential({
-      layers: [
-        tf.layers.conv2d({ inputShape: [28, 28, 1], filters: 16, kernelSize: 3, activation: 'relu', name: 'Conv2D_1' }),
-        tf.layers.maxPooling2d({ poolSize: 2, name: 'MaxPool_1' }),
-        tf.layers.conv2d({ filters: 32, kernelSize: 3, activation: 'relu', name: 'Conv2D_2' }),
-        tf.layers.flatten({ name: 'Flatten' }),
-        tf.layers.dense({ units: 10, activation: 'softmax', name: 'Output_Dense' })
-      ]
+    // tf.tidy executes the function and then cleans up all intermediate tensors
+    return tf.tidy(() => {
+      return this.model!.layers.map(layer => {
+        let weightsData: Float32Array | undefined;
+        
+        // Defensive check for weights
+        const weights = layer.getWeights();
+        if (weights && weights.length > 0) {
+            // We usually want the kernel, usually the first weight tensor
+            // synchonous dataSync() is okay for small visualization data, 
+            // but prefer data() (async) for large models in production.
+            weightsData = weights[0].dataSync() as Float32Array; 
+        }
+
+        return {
+          name: layer.name,
+          type: layer.getClassName(),
+          shape: layer.outputShape as number[],
+          weights: weightsData,
+          activation: (layer as any).activation?.constructor?.name // Safer access
+        };
+      });
     });
-    
-    // Giả lập biên dịch để model sẵn sàng
-    this.model.compile({ optimizer: 'sgd', loss: 'categoricalCrossentropy' });
-    
-    return this.extractStructure();
   }
 
-  extractStructure(): LayerData[] {
-    if (!this.model) return [];
-    let zOffset = 0;
-    return this.model.layers.map((layer, idx) => {
-      zOffset += 15; // Khoảng cách giữa các lớp
-      const shape = layer.outputShape as number[];
-      return {
-        id: `layer_${idx}`,
-        type: layer.getClassName(),
-        name: layer.name,
-        shape: shape.map(s => s || 1), // Xử lý null dimension
-        depth: zOffset
-      };
-    });
+  /**
+   * Manual cleanup method to be called when component unmounts
+   */
+  dispose(): void {
+    if (this.model) {
+      this.model.dispose();
+      this.model = null;
+      console.log('[CNNEngine] Model disposed.');
+    }
   }
 }
