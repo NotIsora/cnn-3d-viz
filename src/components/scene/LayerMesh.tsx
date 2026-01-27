@@ -1,56 +1,50 @@
 'use client';
 
-import React, { useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { getOptimalGridSize } from '@/utils/math-utils';
+import { LayerData } from '@/core/CNNEngine'; // Import shared type
 
 interface LayerMeshProps {
+  data: LayerData;
   position: [number, number, number];
-  count: number;
-  color: string;
-  layerName: string;
+  color?: string;
 }
 
-const LayerMesh: React.FC<LayerMeshProps> = ({ position, count, color, layerName }) => {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
+export const LayerMesh: React.FC<LayerMeshProps> = ({ 
+  data, 
+  position, 
+  color = 'orange' 
+}) => {
+  const meshRef = useRef<THREE.Mesh>(null);
 
-  // Tính toán lưới grid
-  const { cols } = useMemo(() => getOptimalGridSize(count), [count]);
+  // 1. Optimization: Use useMemo for geometry to avoid recreating it on every render
+  const geometry = useMemo(() => {
+    // Logic to determine geometry based on shape (e.g., Box for Conv2D, Plane for Dense)
+    // Simplified for demo:
+    const [d, h, w] = data.shape.slice(1); // Assuming [batch, height, width, depth]
+    return new THREE.BoxGeometry(w || 1, h || 1, (d || 1) * 0.1);
+  }, [data.shape]);
 
-  useLayoutEffect(() => {
-    if (!meshRef.current) return;
-
-    const spacing = 0.6; // Khoảng cách giữa các neuron
-    const offsetX = (cols * spacing) / 2;
-    const offsetY = (Math.ceil(count / cols) * spacing) / 2;
-
-    for (let i = 0; i < count; i++) {
-      const x = (i % cols) * spacing - offsetX;
-      const y = Math.floor(i / cols) * spacing - offsetY;
-      
-      dummy.position.set(x, -y, 0);
-      dummy.scale.setScalar(1); // Reset scale
-      dummy.updateMatrix();
-      
-      meshRef.current.setMatrixAt(i, dummy.matrix);
-      // Set màu mặc định
-      meshRef.current.setColorAt(i, new THREE.Color(color));
-    }
-    
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
-  }, [count, cols, color, dummy]);
+  // 2. Safety: Explicit Resource Disposal
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      // If we created a custom material instance, we would dispose it here too.
+    };
+  }, [geometry]);
 
   return (
     <group position={position}>
-      {/* Label tên Layer */}
-      <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
-        <boxGeometry args={[0.4, 0.4, 0.4]} />
-        <meshStandardMaterial roughness={0.3} metalness={0.2} />
-      </instancedMesh>
+      <mesh ref={meshRef} geometry={geometry}>
+        <meshStandardMaterial 
+            color={color} 
+            transparent 
+            opacity={0.8} 
+            side={THREE.DoubleSide} 
+        />
+      </mesh>
+      {/* 3. UX: Add floating label for better context */}
+      {/* <Text ... >{data.name}</Text> */} 
     </group>
   );
 };
-
-export default LayerMesh;
