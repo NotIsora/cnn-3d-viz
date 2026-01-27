@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     
-    "// FIX NOTE": "Thêm lệnh touch out/.nojekyll để sửa lỗi GitHub Pages bỏ qua thư mục _next",
+    "// FIX EXPLANATION": "Thêm lệnh tạo file .nojekyll sau khi build xong để GitHub Pages không chặn file CSS/JS",
     "build": "next build && touch out/.nojekyll",
     
     "start": "next start",
