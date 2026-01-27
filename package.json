@@ -1,10 +1,13 @@
 {
-  "name": "cnn-visualizer",
+  "name": "cnn-3d-viz",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    
+    "// FIX NOTE": "Thêm lệnh touch out/.nojekyll để sửa lỗi GitHub Pages bỏ qua thư mục _next",
+    "build": "next build && touch out/.nojekyll",
+    
     "start": "next start",
     "lint": "next lint"
   },
