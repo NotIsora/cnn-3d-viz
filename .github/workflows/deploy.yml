@@ -29,7 +29,8 @@ jobs:
 
       - name: Install dependencies
         # FIX 1: Dùng 'npm install' thay vì 'npm ci' để tránh lỗi lockfile lệch
-        run: npm install
+        # Thêm flag --legacy-peer-deps để bỏ qua lỗi conflict version (eslint 8 vs 9)
+        run: npm install --legacy-peer-deps
 
       - name: Build
         run: npm run build
