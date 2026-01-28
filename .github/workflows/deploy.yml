@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"] # ⚠️ Đảm bảo branch chính của bạn tên là 'main' (không phải 'master')
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm' # Tối ưu tốc độ build
+
+      - name: Install dependencies
+        # FIX 1: Dùng 'npm install' thay vì 'npm ci' để tránh lỗi lockfile lệch
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Fix Jekyll for GitHub Pages
+        # FIX 2: Tạo file .nojekyll thủ công tại đây (An toàn tuyệt đối)
+        # Lệnh này đảm bảo folder 'out' tồn tại và ngăn GitHub Pages lỗi hiển thị
+        run: |
+          mkdir -p out
+          touch out/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
