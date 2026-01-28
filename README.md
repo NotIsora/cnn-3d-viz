@@ -1,79 +1,79 @@
 # 🧠 3D CNN Explainer
 
-Một ứng dụng web tương tác cao cấp giúp **trực quan hóa hoạt động của Mạng Nơ-ron Tích chập (CNN)** trong không gian 3D. Dự án giúp người xem "nhìn thấu" những gì máy tính thực sự nhìn thấy khi nhận diện chữ số viết tay.
+A high-end, interactive web application that helps you **visualize Convolutional Neural Network (CNN) operations** in 3D. This project allows you to "see through" what the computer actually sees when recognizing handwritten digits.
 
-🔗 **Live Demo:** [Trải nghiệm ngay tại đây](https://NotIsora.github.io/cnn-3d-viz/)
+🔗 **Live Demo:** [Experience it here](https://NotIsora.github.io/cnn-3d-viz/)
 
 ![CNN Visualization Preview](./public/assets/preview.png)
 
-## ✨ Tính năng nổi bật
+## ✨ Key Features
 
-### 1. 🖌️ Tương tác thời gian thực
--   **Vẽ số tự do**: Bạn vẽ số lên bảng, hệ thống nhận diện tức thì.
--   **Real-time Inference**: Mô hình AI chạy trực tiếp trên trình duyệt bằng **TensorFlow.js** (WebGPU/WebGL), không cần gửi ảnh về server.
+### 1. 🖌️ Real-time Interaction
+-   **Freehand Drawing**: Draw digits on the canvas, and the system recognizes them instantly.
+-   **Real-time Inference**: The AI model runs directly in the browser using **TensorFlow.js** (WebGPU/WebGL), with no image data sent to a server.
 
-### 2. 🧊 Trực quan hóa 3D (Fluid Visualization)
--   **True Feature Maps**: Thay vì các khối hộp trừu tượng, hệ thống hiển thị **hình ảnh thực tế (2D Texture)** mà mạng nơ-ron đang "học" tại mỗi lớp.
-    -   *Layer 1 (Conv2D)*: Thấy rõ các đặc điểm cạnh, nét cong.
-    -   *Layer 2 (MaxPooling)*: Thấy hình ảnh được cô đọng lại.
--   **Fluid Animations**: Các lớp nơ-ron biến đổi mượt mà (Interpolation) khi bạn vẽ nét mới.
--   **Interactive Inspection**: 
-    -   **Click to Zoom**: Nhấp vào bất kỳ lớp nào để camera tự động zoom vào và tập trung vào lớp đó.
-    -   **Detailed Explanations**: Một bảng thông tin chi tiết sẽ hiện ra, giải thích cơ chế hoạt động, công thức toán học đơn giản hóa, và ý nghĩa của lớp đó (ví dụ: "Thinking Layer", "Focus Training").
--   **Optimized Layout**: Sắp xếp dạng lưới 2 hàng giúp quan sát toàn bộ mạng lưới dễ dàng hơn.
+### 2. 🧊 Fluid 3D Visualization
+-   **True Feature Maps**: Instead of abstract cubes, the system displays **actual images (2D Textures)** that the neural network is "learning" at each layer.
+    -   *Layer 1 (Conv2D)*: Clearly shows edges, curves, and simple features.
+    -   *Layer 2 (MaxPooling)*: Shows condensation of features.
+-   **Fluid Animations**: Neural layers transform smoothly (Interpolation) as you draw new strokes.
+-   **Interactive Inspection**:
+    -   **Click to Zoom**: Click on any layer to have the camera automatically zoom in and focus on it.
+    -   **Detailed Explanations**: A detailed info panel appears, explaining the mechanism, simplified mathematical formulas, and the significance of that layer (e.g., "Feature Extraction", "Downsampling").
+-   **Optimized Layout**: A 2-row grid layout makes it easier to observe the entire network.
 
-### 3. 🧠 Mô hình AI Tối ưu
+### 3. 🧠 Optimized AI Model
 -   **Architecture**: Conv2D -> MaxPooling -> Conv2D -> Flatten -> Dropout -> Dense.
--   **Robustness**: Được huấn luyện với **Data Augmentation** (xoay, dịch chuyển) và **Regularization** (Dropout, L2) để nhận diện tốt chữ số viết tay méo mó hoặc không nằm giữa tâm.
+-   **Robustness**: Trained with **Data Augmentation** (rotation, shift) and **Regularization** (Dropout, L2) to robustly recognize distorted or off-center handwritten digits.
 
-## 🛠 Công nghệ cốt lõi
+## 🛠 Core Technologies
 
 -   **Frontend**: [Next.js 14](https://nextjs.org/) (App Router, TypeScript)
 -   **3D Graphics**: [Three.js](https://threejs.org/) & [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
-    -   *Custom Shaders/Textures* cho hiệu năng cao.
+    -   *Custom Shaders/Textures* for high performance.
 -   **AI Core**: [TensorFlow.js](https://www.tensorflow.org/js)
 -   **Styling**: Tailwind CSS & Lucide Icons
 
-## 📂 Cấu trúc dự án
+## 📂 Project Structure
 
 ```bash
 src/
 ├── app/                  # Next.js Pages
 ├── components/
 │   ├── scene/            # 3D Components
-│   │   ├── NetworkView.tsx   # Quản lý Scene 3D
+│   │   ├── NetworkView.tsx   # 3D Scene Manager
 │   │   └── LayerMesh.tsx     # Render Feature Maps (DataTexture)
 │   └── ui/               # 2D Interface (Button, Drawing Canvas)
 ├── core/                 # AI & Logic
-│   ├── CNNEngine.ts      # Quản lý model & training loop
-│   └── MnistData.ts      # Xử lý dữ liệu MNIST
+│   ├── CNNEngine.ts      # Model & training loop management
+│   └── MnistData.ts      # MNIST data processing
 └── styles/               # Global CSS
 ```
 
-## 🚀 Cài đặt & Chạy thử
+## 🚀 Installation & Setup
 
-1.  **Clone repo:**
+1.  **Clone the repo:**
     ```bash
     git clone https://github.com/NotIsora/cnn-3d-viz.git
     cd cnn-3d-viz
     ```
 
-2.  **Cài đặt dependencies:**
+2.  **Install dependencies:**
     ```bash
     npm install
-    # hoặc
+    # or
     yarn install
     ```
 
-3.  **Chạy server development:**
+3.  **Run development server:**
     ```bash
     npm run dev
     ```
-    Truy cập `http://localhost:3000`.
+    Open `http://localhost:3000`.
 
-## 🤝 Đóng góp
+## 🤝 Contribution
 
-Dự án này là mã nguồn mở. Mọi đóng góp (Pull Request, Issue) đều được hoan nghênh!
+This project is open source. All contributions (Pull Request, Issue) are welcome!
 
 ---
 *Developed with ❤️ using Next.js & TensorFlow.js*
