@@ -148,7 +148,11 @@ export class CNNEngine {
   async loadModel() {
     // Try loading from public folder
     try {
-      this.model = await tf.loadLayersModel('/model/model.json') as tf.Sequential;
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      // Ensure we don't have double slashes if basePath is empty or ends with /
+      const modelPath = `${basePath}/model/model.json`;
+      console.log(`Attempting to load model from: ${modelPath}`);
+      this.model = await tf.loadLayersModel(modelPath) as tf.Sequential;
       this.compileModel();
       this.updateDebugModel();
     } catch (e) {

@@ -5,6 +5,9 @@ const nextConfig = {
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
   output: 'export', // Bắt buộc cho GitHub Pages (Static Site Generation)
   basePath: '/cnn-3d-viz', // Tên repository của bạn
+  env: {
+    NEXT_PUBLIC_BASE_PATH: '/cnn-3d-viz',
+  },
   images: {
     unoptimized: true, // Không dùng Image Optimization của Next.js (yêu cầu server)
   },
