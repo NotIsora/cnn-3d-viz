@@ -4,7 +4,7 @@ Một ứng dụng web tương tác cao cấp giúp **trực quan hóa hoạt đ
 
 🔗 **Live Demo:** [Trải nghiệm ngay tại đây](https://NotIsora.github.io/cnn-3d-viz/)
 
-![CNN Visualization Preview](https://raw.githubusercontent.com/sickn33/antigravity-awesome-skills/main/skills/3d-web-experience/preview-placeholder.jpg)
+![CNN Visualization Preview](./public/assets/preview.png)
 
 ## ✨ Tính năng nổi bật
 
