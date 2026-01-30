@@ -130,7 +130,7 @@ export class CNNEngine {
       batchSize: BATCH_SIZE,
       validationData: [testXs, testYs],
       validationSplit: 0.1,
-      epochs: 5,
+      epochs: 12,
       shuffle: true,
       callbacks: {
         onEpochEnd: (epoch, logs) => {
